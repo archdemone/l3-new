@@ -1,5 +1,6 @@
 node_modules/
 backend/dist/
+frontend/dist/
 *.log
 .DS_Store
 .env
@@ -13,3 +14,4 @@ dist/
 build/
 coverage/
 graphify-out/
+.turbo/
