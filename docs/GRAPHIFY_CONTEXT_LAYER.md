@@ -202,6 +202,10 @@ Tests cover:
 - Graph building with path validation
 - Graph status reading (including stale detection)
 - Query and fallback search over sample graphs
+- Path validation preventing traversal attacks
+- Graceful handling of malformed graphs
+
+**Important**: Unit tests validate safe fallback behavior even when Graphify is missing. They do NOT require Graphify to be installed.
 
 ### Run Smoke Test
 
@@ -211,17 +215,38 @@ npm run test:smoke
 
 The smoke test:
 1. Creates a temporary fixture repository with realistic files
-2. Builds a Graphify graph (if Graphify is installed)
-3. Tests status reading
-4. Tests query functionality
-5. Prints `GRAPHIFY_CONTEXT_LAYER_SMOKE_PASS` on success
+2. Attempts to build a Graphify graph (if Graphify is installed)
+3. Tests fallback search over sample graphs
+4. Verifies that nodes contain only metadata, not full source files
+5. Prints clear success or skip markers
 
-**If Graphify is not installed**, the test prints:
+**Success output** (when Graphify is installed):
+```
+GRAPHIFY_CONTEXT_LAYER_SMOKE_PASS
+```
+
+**Skip output** (when Graphify is not installed):
 ```
 GRAPHIFY_CONTEXT_LAYER_SMOKE_SKIPPED_GRAPHIFY_NOT_INSTALLED
 ```
 
-This is expected and not a failure. The backend gracefully handles missing Graphify.
+### Test Coverage Notes
+
+**Unit tests** (17 tests, always run):
+- ✅ Validate all service functions with mocked/sample data
+- ✅ Test missing Graphify gracefully (no crash)
+- ✅ Test malformed graphs and missing files
+- ✅ Test path validation and traversal prevention
+
+**Smoke test** (requires Graphify + API key for full coverage):
+- ✅ Tests graceful fallback even without Graphify
+- ⚠️ Real graph build requires Graphify installed AND an LLM API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
+- ✅ Fallback search (graph.json + GRAPH_REPORT.md) works without Graphify
+
+**Full validation** requires:
+1. Graphify installed: `pip install graphifyy`
+2. LLM API key set (e.g., `ANTHROPIC_API_KEY`)
+3. Run: `npm run test:smoke` → should print `GRAPHIFY_CONTEXT_LAYER_SMOKE_PASS`
 
 ---
 

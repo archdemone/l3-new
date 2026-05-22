@@ -1,6 +1,9 @@
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const execFileAsync = promisify(execFile);
 import {
   GraphifyStatus,
   GraphifyBuildResult,
@@ -43,10 +46,10 @@ function validateWorkspacePath(workspacePath: string): { valid: boolean; error?:
 
 export async function checkGraphifyAvailable(): Promise<GraphifyStatus> {
   try {
-    const stdout = execSync('graphify --help', {
+    const { stdout } = await execFileAsync('graphify', ['--help'], {
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
       timeout: 5000,
+      shell: false,
     });
 
     if (stdout) {
@@ -108,17 +111,23 @@ export async function buildGraphifyGraph(
       };
     }
 
-    // Run graphify in the workspace directory
+    // Run graphify update in the workspace directory
+    // Use execFile with argument array for safety (no shell interpolation)
+    // Workspace path is passed via cwd, never interpolated into command
     try {
-      const stdout = execSync('graphify .', {
+      const { stdout, stderr } = await execFileAsync('graphify', ['update', '.'], {
         cwd: workspacePath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
         timeout,
+        shell: false,
+        maxBuffer: 1024 * 1024, // 1MB buffer for large outputs
       });
 
       if (stdout) {
         stdoutLines.push(...stdout.split('\n').filter(l => l.trim()));
+      }
+      if (stderr) {
+        stderrLines.push(...stderr.split('\n').filter(l => l.trim()));
       }
     } catch (err: any) {
       const stderr = err.stderr || err.message || '';
@@ -269,16 +278,15 @@ export async function queryGraphifyContext(
   const maxResults = options?.maxResults ?? 10;
 
   // First, try to use Graphify query command if available
+  // Use execFile with argument array for safety (no shell interpolation)
   try {
-    const stdout = execSync(
-      `graphify query "${query.replace(/"/g, '\\"')}"`,
-      {
-        cwd: workspacePath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'ignore'],
-        timeout: 10000,
-      }
-    );
+    const { stdout } = await execFileAsync('graphify', ['query', query], {
+      cwd: workspacePath,
+      encoding: 'utf-8',
+      timeout: 10000,
+      shell: false,
+      maxBuffer: 1024 * 1024,
+    });
 
     // If successful, parse and return results
     if (stdout) {
